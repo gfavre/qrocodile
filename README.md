@@ -7,11 +7,11 @@ A kid-friendly system for controlling Sonos with QR codes.
 This is a fork of the qrocodile project originally developed by [chrispcampbell](https://github.com/chrispcampbell).
 It also incorporates many chages made in a separate fork by [dernorberto](https://github.com/dernorberto).
 
-This fork uses the [SoCo](https://github.com/SoCo/SoCo) library to control the Sonos system, rather than node-sonos-http-api. This makes some elements of running the controller simpler, but also requires some special consideration when preparing to use it:
+This fork uses the [SoCo](https://github.com/SoCo/SoCo) library to control the Sonos system, rather than `node-sonos-http-api`. This makes some elements of running the controller simpler, but also requires some special consideration when preparing to use it:
 
 * The SoCo library does not support speech through the Sonos speaker; therefore, this qrocodile does not speak in the fun way that the original does.
-* Currently a [known issue](https://github.com/SoCo/SoCo/issues/557) with how the SoCo library accesses subscription-based music services prevents connecting to Spotify. Until that issue is resolved, the only way to get a qrocodile to play items via spotify is by using the node-sonos-http-api (i.e. by not using this fork)
-* The original project actually uses a modified version of node-sonos-http-api that 'hashes' library tracks to make simpler QR codes for the controller camera to read. Because this version uses SoCo instead, we have to come up with our own way of [keeping QR codes simple](#keeping-qr-codes-simple).
+* Currently a [known issue](https://github.com/SoCo/SoCo/issues/557) with how the SoCo library accesses subscription-based music services prevents connecting to Spotify. Until that issue is resolved, the only way to get a qrocodile to play items via spotify is by using the `node-sonos-http-api` (i.e. by not using this fork)
+* The original project actually uses a modified version of `node-sonos-http-api` that 'hashes' library tracks to make simpler QR codes for the controller camera to read. Because this version uses SoCo instead, we have to come up with our own way of [keeping QR codes simple](#keeping-qr-codes-simple).
 
 Also, this fork was developed with my particular needs in mind. Therefore, in addition to using some code of dubious quality, it incorporates some assumptions and idiosyncracies that should be taken into account:
 
@@ -23,18 +23,14 @@ Also, this fork was developed with my particular needs in mind. Therefore, in ad
 The track and album metadata used to send commands to the Sonos system can vary in complexity, mostly depending on how long the artist, album, and/or track names are. This means that the corresponding QR codes can be very simple and "low-res", or very complex and therefore very hard to have read accurately by the camera used in qrocodile.
 
 <p align="center">
-    <figure>
-        <img src="docs/images/simple_qr.png" width="40%" height="40%"> 
-        <figcaption>Simple QR code. Easy to read.</figcaption>
-    </figure>
-    <figure>
-        <img src="docs/images/complex_qr.png" width="40%" height="40%">
-        <figcaption>Complex QR code. Hard to read.</figcaption>
-    </figure>
+    <img src="docs/images/simple_qr.png" width="40%" height="40%"> 
+    <img src="docs/images/complex_qr.png" width="40%" height="40%">
+</p>
+<p align="center">
+    Left: Simple QR code. Easy to read. Right: Complex QR code. Hard to read.
 </p>
 
-
-As mentioned above, the original qrocodile uses a custom version of the node-sonos-http-api that creates an md5 hash string from the original track information, and encodes that hash into the track's card QR code. This version allows for a similar process, and keeps track of "hashed" tracks and albums by using a dictionary lookup in a local file.
+As mentioned above, the original qrocodile uses a custom version of the `node-sonos-http-api` that creates an md5 hash string from the original track information, and encodes that hash into the track's card QR code. This version allows for a similar process, and keeps track of "hashed" tracks and albums by using a dictionary lookup in a local file.
 
 By default, single tracks are automatically hashed, because they tend to have very long URIs that would otherwise lead to too-complex QR codes. Albums may be encoded with or without the use of a hash, mainly because I figured out the "hashed" QR code approach after cuttting and gluing cards for half of my music library, and wanted to still be able to play "non-hashed" QR codes.
 
