@@ -1,13 +1,5 @@
-lib:86d7b406b0f93a5e0993ce77b539cad2 # La Bonne Soupe > Literary Gentlemen > Oaf King, Again
-spotify:track:4uip0lLkMKl1nwchsdXs1r # Sweet > Fox On The Run
-lib:8b956f667499399de1b5b82dca9ac5e0 # Misfits > Walk Among Us > 20 Eyes
-cmd:playpause
-cmd:next
-cmd:turntable
-cmd:livingroom
-cmd:diningandkitchen
-cmd:songonly
-cmd:wholealbum
-cmd:buildqueue
-cmd:whatsong
-cmd:whatnext
+alb:A:ALBUM/Wolfgang%20Amadeus%20Phoenix$Phoenix$Wolfgang Amadeus Phoenix$/getaa?u=x-file-cifs%3a%2f%2fcomputer%2fmusic%2fiTunes%2fMusic%2fPhoenix%2fWolfgang%2520Amadeus%2520Phoenix%2f01%2520Lisztomania.mp3&v=158
+alb:hsh:A:ALBUM/Wolfgang%20Amadeus%20Phoenix$Phoenix$Wolfgang Amadeus Phoenix$/getaa?u=x-file-cifs%3a%2f%2fcomputer%2fmusic%2fiTunes%2fMusic%2fPhoenix%2fWolfgang%2520Amadeus%2520Phoenix%2f01%2520Lisztomania.mp3&v=158
+trk:x-file-cifs://computer/music/iTunes/Music/Original%20Soundtrack/Chants%20From%20The%20Thin%20Red%20Line/01%20Jisas%20Yu%20Hand%20Blong%20Mi.mp3$Choir of All Saints$Jisas Yu Hand Blong Mi$Chants From The Thin Red Line$/getaa?u=x-file-cifs%3a%2f%2fcomputer%2fmusic%2fiTunes%2fMusic%2fOriginal%2520Soundtrack%2fChants%2520From%2520The%2520Thin%2520Red%2520Line%2f01%2520Jisas%2520Yu%2520Hand%2520Blong%2520Mi.mp3&v=158
+pl:file:///jffs/settings/savedqueues.rsq#0$Ray Charles et. al.
+spotify:user:spotify:playlist:37i9dQZEZmNEtJAK1K4qRX

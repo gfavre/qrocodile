@@ -1,4 +1,8 @@
 out
+local
 .cache*
 .last-device
 .DS_Store
+*.log
+my_defaults.txt
+hashed_tracks.dat

@@ -2,25 +2,47 @@
 
 A kid-friendly system for controlling Sonos with QR codes.
 
-## What Is It?
+## What is it?
 
-On the hardware side, it's just a camera-attached Raspberry Pi nested inside some green LEGO and running some custom software that scans QR codes and translates them into commands that control your Sonos system:
+This is a fork of the qrocodile project originally developed by [chrispcampbell](https://github.com/chrispcampbell).
+It also incorporates many chages made in a separate fork by [dernorberto](https://github.com/dernorberto).
+
+This fork uses the [SoCo](https://github.com/SoCo/SoCo) library to control the Sonos system, rather than node-sonos-http-api. This makes some elements of running the controller simpler, but also requires some special consideration when preparing to use it:
+
+* The SoCo library does not support speech through the Sonos speaker; therefore, this qrocodile does not speak in the fun way that the original does.
+* Currently a [known issue](https://github.com/SoCo/SoCo/issues/557) with how the SoCo library accesses subscription-based music services prevents connecting to Spotify. Until that issue is resolved, the only way to get a qrocodile to play items via spotify is by using the node-sonos-http-api (i.e. by not using this fork)
+* The original project actually uses a modified version of node-sonos-http-api that 'hashes' library tracks to make simpler QR codes for the controller camera to read. Because this version uses SoCo instead, we have to come up with our own way of [keeping QR codes simple](#keeping-qr-codes-simple).
+
+Also, this fork was developed with my particular needs in mind. Therefore, in addition to using some code of dubious quality, it incorporates some assumptions and idiosyncracies that should be taken into account:
+
+* Supporting mostly album-based play. Single tracks can be played, as well as playlists (both imported and Sonos playlists), but the original 'queue-building' features are not currently supported.
+* Using an LED wired to one of the Raspberry Pi's GPIO ports. This is mainly used because my physical version of the qrocodile completely encases the QR code and camera, meaning that an external light is needed to illuminate the music cards. If you don't need or want the LED, you may need to remove references to the RPi.GPIO in the code.
+
+### Keeping QR Codes Simple
+
+The track and album metadata used to send commands to the Sonos system can vary in complexity, mostly depending on how long the artist, album, and/or track names are. This means that the corresponding QR codes can be very simple and "low-res", or very complex and therefore very hard to have read accurately by the camera used in qrocodile.
 
 <p align="center">
-<img src="docs/images/qroc-photo-front.jpg" width="40%" height="40%"> <img src="docs/images/qroc-photo-back.jpg" width="40%" height="40%">
+    <figure>
+        <img src="docs/images/simple_qr.png" width="40%" height="40%"> 
+        <figcaption>Simple QR code. Easy to read.</figcaption>
+        <img src="docs/images/complex_qr.jpg" width="40%" height="40%">
+        <figcaption>Complex QR code. Hard to read.</figcaption>
+    </figure>
 </p>
 
-On the software side, there are two separate Python scripts:
 
-* Run `qrgen.py` on your primary computer.  It takes a list of songs (from your local music library and/or Spotify) and commands (e.g. play/pause, next) and spits out an HTML page containing little cards imprinted with an icon and text on one side, and a QR code on the other.  Print them out, then cut, fold, and glue until you're left with a neat little stack of cards.
+As mentioned above, the original qrocodile uses a custom version of the node-sonos-http-api that creates an md5 hash string from the original track information, and encodes that hash into the track's card QR code. This version allows for a similar process, and keeps track of "hashed" tracks and albums by using a dictionary lookup in a local file.
 
-* Run `qrplay.py` on your Raspberry Pi.  It launches a process that uses the attached camera to scan for QR codes, then translates those codes into commands (e.g. "speak this phrase", "play [song] in this room", "build a queue").
+By default, single tracks are automatically hashed, because they tend to have very long URIs that would otherwise lead to too-complex QR codes. Albums may be encoded with or without the use of a hash, mainly because I figured out the "hashed" QR code approach after cuttting and gluing cards for half of my music library, and wanted to still be able to play "non-hashed" QR codes.
+
+Unfortunately, this means that album cards require a little bit of [finicky treatment](#special-treatment-for-album-cards) to keep their QR codes simple. This includes steps for creating "hashed" and "non-hashed" cards.
 
 ## Installation and Setup
 
 ### 1. Prepare your Raspberry Pi
 
-I built this using a Raspberry Pi 3 Model B (running Raspbian) and an Arducam OV5647 camera module.  Things may or may not work with other models (for example, how you control the onboard LEDs varies by model).
+Originally built using a Raspberry Pi 3 Model B running Raspbian (it also works using a Raspberry Pi Zero W) and an Arducam OV5647 camera module.  Things may or may not work with other models (for example, how you control the onboard LEDs varies by model).
 
 To set up the camera module, I had to add an entry in `/etc/modules`:
 
@@ -41,80 +63,115 @@ Next, install `zbar-tools` (used to scan for QR codes) and test it out:
 
 Optional: Make a little case to hold your RPi and camera along with a little slot to hold a card in place.
 
-### 2. Start `node-sonos-http-api`
-
-Currently `qrplay` relies on a [custom fork](https://github.com/chrispcampbell/node-sonos-http-api/tree/qrocodile) of `node-sonos-http-api` that has been modified to do things like:
-
-* look up library tracks using only a hash string (to keep the QR codes simple)
-* return a list of all available library tracks and their associated hashes
-* speak the current/next track
-* play the album associated with a song
-* other things I'm forgetting at the moment
-
-(Note: `node-sonos-http-api` made it easy to bootstrap this project, as it already did much of what I needed.  However, it would probably make more sense to use something like [SoCo](https://github.com/SoCo/SoCo) (a Sonos controller API for Python) so that we don't need to run a separate server, and `qrplay` could control the Sonos system directly.)
-
-It's possible to run `node-sonos-http-api` directly on the Raspberry Pi, so that you don't need an extra machine running, but I found that it's kind of slow this way (especially when the QR scanner process is already taxing the CPU), so I usually have it running on a separate machine to keep things snappy.
-
-To install, clone my fork, check out the `qrocodile` branch, install, and start:
-
-```
-% git clone -b qrocodile https://github.com/chrispcampbell/node-sonos-http-api.git
-% cd node-sonos-http-api
-% npm install --production
-% npm start
-```
-
-### 3. Generate some cards with `qrgen`
+### 2. Generate some cards with `qrgen`
 
 First, clone the `qrocodile` repo if you haven't already on your primary computer:
 
 ```
-% git clone https://github.com/chrispcampbell/qrocodile
+% git clone https://github.com/foldedpaper/qrocodile
 % cd qrocodile
 ```
 
-Also install `qrencode` via Homebrew:
+Next, modify the `my_defaults_example.txt` file to include the default room speaker you wish to control, and save it as `my_defaults.txt`.
+
+#### Cards for items in your music library
+To generate each card with a QR code, you will need URIs for the tracks, albums, and playlists that want to encode. `qrgen` uses a different command line argument for each of these.
+
+To list all tracks:
 
 ```
-% brew install qrencode
+% python3 qrgen.py --list-library-tracks
 ```
 
-Spotify track URIs can be found in the Spotify app by clicking a song, then selecting "Share > Copy Spotify URI".  For `qrgen` to access your Spotify account, you'll need to set up your own Spotify app token.  (More on that in the `spotipy` [documentation](http://spotipy.readthedocs.io/en/latest/).)
-
-You can use `qrgen` to list out URIs for all available tracks in your music library (these examples assume `node-sonos-http-api` is running on `localhost`):
+You can also include a search term to list matching tracks, if you are only intersted in a subset of your library:
 
 ```
-% python qrgen.py --hostname localhost --list-library
+% python3 qrgen.py --list-library-tracks <search term>
 ```
 
-Next, create a text file that lists the different cards you want to create.  (See `example.txt` for some possibilities.)
-
-Finally, generate some cards and view the output in your browser:
+To list all albums:
 
 ```
-% python qrgen.py --hostname localhost --input example.txt
-% open out/index.html
+% python3 qrgen.py --list-library-albums
 ```
 
-It'll look something like this:
+To list all playlists:
 
-<p align="center">
-<img src="docs/images/sheet.jpg" width="50%" height="50%">
-</p>
+```
+% python3 qrgen.py --list-library-playlists
+```
+
+Each of these commands will write a text file to the `out` sub-directory of the project. 
+
+Next, create a text file in the root project directory that lists the different music cards you want to create. Use one line per card, and for each card paste the URI written to the text file in the step above. 
+
+(See `example.txt` for some possibilities.)
+
+##### Special treatment for album cards
+If you want to create cards for playing albums from your library, you will have to take an extra step for the `qrplay` script to be able to send them to the Sonos speaker.
+
+When you create a list of library albums using the above command, the generated `all_albums.txt` file will have an entry at the top for `album_uuid_prefix`. This is a string that identifies one of the zone speakers in your Sonos system, and it is needed to construct the full album URI that is sent through SoCo to play the album. Copy this `album_uuid_prefix` to your `my_defaults.txt` file in order to enable playing albums from your local library.
+
+As mentioned above, album cards can optionally have their metadata "hashed" to create simpler QR codes. This may not be necessary for your setup, but I find that with my RPi's camera and the low light on the bookshelf where I keep my qrocodile, the scanner tends to struggle reading QR codes for albums with long titles and/or long artist names (I start to see problems when the album title and artist title have a combined length over 50 characters or so).
+
+Anyway, if you want to make sure that a particular album is "hashed" for easier reading, change its prefix in the text file for generating from `alb:` to `alb:hsh:`.
+
+(Again, the included `example.txt` has an example of this.)
+
+#### Cards for Spotify items
+(N.B., as mentioned above, this SoCo-driven implementation of qrocodile currently can't play items from your Spotify account. If and when the SoCo library is updated to restore access to Spotify, I will update this fork to make sure Spotify cards can be handled by the qrocodile player. But the process for creating a Spotify item card will remain the same.)
+
+If you want to play Spotify tracks, you will need to set up your own Spotify app token (See the `spotipy` [documentation](http://spotipy.readthedocs.io/en/latest/) for more on that.)
+
+Spotify track URIs can be found in the Spotify app by clicking a song, then selecting "Share > Copy Spotify URI". Add this URI to the text file you will use for generating cards (like the `example.txt` file shows).
+
+#### Finally, generate some cards:
+
+```
+% python3 qrgen.py --input example.txt --generate-images
+```
+
+This will create an `index.html` file in the `out` sub-directory of the project. This file lays out each card with its QR code and its associated artwork:
+    * Track cards will attempt to find the album art of the associated album in your music library, and use that art as the card artwork. If no art is found, a generic album image is used, found in the project directory.
+    * Album cards will attempt to use the associated album art from your music library. If this attempt fails or if no art is found, the generic album image is used.
+    * Playlist cards use a generic playlist image.
+
+#### Cards for commands and Sonos zones
+The cards for commands and Sonos zones are generated separately.
+
+Create command cards using `qrgen` and the text file `command_cards.txt`. Use the file `command_cards_all.txt` as a template, remove the commands you don't need and run the script to generate the cards.
+
+```
+% python3 qrgen.py --commands
+% open out/commands.html
+```
+
+This will create a `commands.html` file in the `out` sub-directory of the project. Artwork for each command card is set within the `command_cards.txt` file.
+
+
+Create Sonos zone cards using `qrgen`. It does not require a list file; instead, the command uses SoCo to poll your Sonos system for all available zones. 
+
+```
+% python3 qrgen.py --zones
+```
+
+This will create a `zones.html` file in the `out` sub-directory of the project. The art for these cards uses a Sonos logo in the project directory (`sonos_360.png`).
+
+### 3. Cut and glue your cards together
 
 ### 4. Start `qrplay`
 
 On your Raspberry Pi, clone this `qrocodile` repo:
 
 ```
-% git clone https://github.com/chrispcampbell/qrocodile
+% git clone https://github.com/foldedpaper/qrocodile
 % cd qrocodile
 ```
 
-Then, launch `qrplay`, specifying the hostname of the machine running `node-sonos-http-api`:
+Then, launch `qrplay`:
 
 ```
-% python qrplay.py --hostname 10.0.1.6
+% python3 qrplay.py
 ```
 
 If you want to use your own `qrocodile` as a standalone thing (not attached to a monitor, etc), you'll want to set up your RPi to launch `qrplay` when the device boots:
@@ -124,59 +181,10 @@ If you want to use your own `qrocodile` as a standalone thing (not attached to a
 # Add an entry to launch `qrplay.py`, pipe the output to a log file, etc
 ```
 
-## The Cards
-
-Currently `qrgen` and `qrplay` have built-in support for two different kinds of cards: song cards, and command cards.
-
-Song cards can be generated for tracks in your music library or from Spotify, and can be used to play just that song, add that song to the queue, or play the entire album.  For example:
-
-<p align="center">
-<img src="docs/images/song.png" width="40%" height="40%" style="border: 1px #ddd solid;">
-</p>
-
-Command cards are used to control your Sonos system, performing actions like switching to a different room, activating the line-in input on a certain device, or pausing/playing the active device.  Here are the commands that are currently supported:
-
-<p align="center">
-<img src="docs/images/cmd-living.png" width="20%" height="20%" style="border: 1px #ddd solid;"> <img src="docs/images/cmd-dining.png" width="20%" height="20%" style="border: 1px #ddd solid;">
-</p>
-
-<p align="center">
-<img src="docs/images/cmd-pause.png" width="20%" height="20%" style="border: 1px #ddd solid;"> <img src="docs/images/cmd-skip.png" width="20%" height="20%" style="border: 1px #ddd solid;">
-</p>
-
-<p align="center">
-<img src="docs/images/cmd-songonly.png" width="20%" height="20%" style="border: 1px #ddd solid;"> <img src="docs/images/cmd-wholealbum.png" width="20%" height="20%" style="border: 1px #ddd solid;">
-</p>
-
-<p align="center">
-<img src="docs/images/cmd-buildlist.png" width="20%" height="20%" style="border: 1px #ddd solid;"> <img src="docs/images/cmd-turntable.png" width="20%" height="20%" style="border: 1px #ddd solid;">
-</p>
-
-<p align="center">
-<img src="docs/images/cmd-whatsong.png" width="20%" height="20%" style="border: 1px #ddd solid;"> <img src="docs/images/cmd-whatnext.png" width="20%" height="20%" style="border: 1px #ddd solid;">
-</p>
-
-## The Backstory
-
-It all started one night at the dinner table.  The kids wanted to put an album on the turntable (hooked up to the line-in on a Sonos PLAY:5 in the dining room).  They're perfectly capable of putting vinyl on the turntable all by themselves, but using the Sonos app to switch over to play from the line-in is a different story.
-
-I was lamenting aloud the number of steps it takes and then I started pondering solutions.  Take off my tin foil hat and give in to the Alexa craze?  Buy some sort of IoT button thing?  An RFID tag thing?  QR codes maybe?  The latter option got me thinking of all kinds of possibilities.  Maybe the kids could choose dinner music from any number of songs/albums (from Spotify or my local collection) just by waving a QR code in front of something.  Or maybe now they could build their own dance party playlists.
-
-It seemed like a fun thing to explore, so I ordered a Raspberry Pi and a cheap camera.  The next day it arrived and the hacking began.
-
 ## Acknowledgments
 
-This was a fun little project to put together mainly because other folks already did much of the hard work.
-
-Hearty thanks to the authors of the following libraries:
-
-* [qrencode](https://github.com/fukuchi/libqrencode)
-* [node-sonos-http-api](https://github.com/jishi/node-sonos-http-api)
-* [spotipy](https://github.com/plamere/spotipy)
-* [webkit2png](https://github.com/paulhammond/webkit2png)
-
-Thanks also to my kids and wife for all the help with building, printing, cutting, folding, gluing, testing, and filming.
+Many thanks to chrispcampbell for creating this great project. I also benefitted from following the modifications made by dernorberto, not to say the work of the many authors of the libraries and tools used in the project.
 
 ## License
 
-`qrocodile` is released under an MIT license. See the LICENSE file for the full license.
+`qrocodile` is released under an MIT license, and the original code is copyright Chris Campbell. See the LICENSE file for the full license.

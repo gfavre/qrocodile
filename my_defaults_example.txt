@@ -1,0 +1,8 @@
+{
+  "default_spotify_user": "",
+  "default_room": "Living Room",
+  "SPOTIPY_CLIENT_ID": "",
+  "SPOTIPY_CLIENT_SECRET": "",
+  "SPOTIPY_REDIRECT_URI": "",
+  "album_uuid_prefix": ""
+}
