@@ -26,7 +26,9 @@ The track and album metadata used to send commands to the Sonos system can vary 
     <figure>
         <img src="docs/images/simple_qr.png" width="40%" height="40%"> 
         <figcaption>Simple QR code. Easy to read.</figcaption>
-        <img src="docs/images/complex_qr.jpg" width="40%" height="40%">
+    </figure>
+    <figure>
+        <img src="docs/images/complex_qr.png" width="40%" height="40%">
         <figcaption>Complex QR code. Hard to read.</figcaption>
     </figure>
 </p>
