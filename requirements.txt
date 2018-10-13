@@ -2,3 +2,4 @@ spotipy==2.4.4
 pyqrcode==1.2.1
 pypng==0.0.18
 soco==0.16
+RPi.GPIO

@@ -8,7 +8,9 @@ import pickle
 import subprocess
 import sys
 from time import sleep
+
 import RPi.GPIO as GPIO
+
 import spotipy
 import spotipy.util as util
 import soco
@@ -193,7 +195,7 @@ def handle_library_item(uri):
     # alb:A:ALBUM/Bone%20Machine
     # albums can also be hashed. they look like:
     # alb:hsh:[hashed_id]
-    
+
     if 'alb:' in uri:
         # if this is a 'hashed' album, get album id from hashed resource
         if 'hsh:' in uri:
@@ -297,7 +299,7 @@ def handle_spotify_album(uri):
 
 # UNUSED until SoCo restores support for spotify
 def handle_spotify_playlist(uri):
-    
+
     logger.info('PLAYING PLAYLIST FROM SPOTIFY: ' + uri)
     sp_user = uri.split(":")[2]
     playlist_raw = sp.user_playlist(sp_user,uri)
@@ -306,10 +308,10 @@ def handle_spotify_playlist(uri):
     # clear the sonos queue
     spkr.clear_queue()
 
-    # create and update the track list   
+    # create and update the track list
     playlist_tracks_raw = sp.user_playlist_tracks(sp_user,uri,limit=50,offset=0)
     playlist_tracks = {}
-    
+
     # turn off shuffle before starting the new queue
     spkr.play_mode = 'NORMAL'
 
@@ -378,7 +380,7 @@ def handle_qrcode(qrcode):
     # when adding songs to the queue)
     if not args.debug_file:
         blink_led()
-        
+
     if store_qr:
         last_qrcode = qrcode
 
