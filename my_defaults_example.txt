@@ -1,6 +1,6 @@
 {
   "default_spotify_user": "",
-  "default_room": "Living Room",
+  "default_room": "chambre-romain",
   "SPOTIPY_CLIENT_ID": "",
   "SPOTIPY_CLIENT_SECRET": "",
   "SPOTIPY_REDIRECT_URI": "",

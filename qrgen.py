@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 import logging
 import argparse
 import hashlib
@@ -7,21 +6,22 @@ import json
 import pickle
 import os.path
 import shutil
+import subprocess
+from urllib.parse import unquote
+
+import xml.etree.ElementTree as ET
+
 import spotipy
 import spotipy.util as util
-import subprocess
-import sys
 import pyqrcode
 import soco
-from soco.data_structures import DidlItem, DidlResource
-import xml.etree.ElementTree as ET
 
 # Set up logfile
 LOG_FORMAT = '%(levelname)s %(asctime)s - %(message)s'
-logging.basicConfig(#filename = 'qrgen.log',
-                    #filemode = 'w',
-                    level = logging.INFO,
-                    format = LOG_FORMAT)
+logging.basicConfig(  # filename = 'qrgen.log',
+    # filemode = 'w',
+    level=logging.INFO,
+    format=LOG_FORMAT)
 logger = logging.getLogger()
 
 # Build a map of the known commands
@@ -29,28 +29,35 @@ commands = json.load(open('command_cards.txt'))
 
 # Load defaults from my_defaults.txt
 current_path = os.getcwd()
-defaults = json.load(open('my_defaults.txt','r'))
+defaults = json.load(open('my_defaults.txt', 'r'))
 default_room = defaults['default_room']
 default_spotify_user = defaults['default_spotify_user']
 # set spotify authentication variables
 sp_client_id = defaults['SPOTIPY_CLIENT_ID']
 sp_client_secret = defaults['SPOTIPY_CLIENT_SECRET']
 sp_redirect = defaults['SPOTIPY_REDIRECT_URI']
-logging.info('Imported defaults: %s' % (defaults))
+logging.info('Imported defaults: %s' % defaults)
 
 # Parse the command line arguments
-arg_parser = argparse.ArgumentParser(description='Generates an HTML page containing cards with embedded QR codes that can be interpreted by `qrplay`.')
+arg_parser = argparse.ArgumentParser(
+    description='Generates an HTML page containing cards with embedded QR codes that can be interpreted by `qrplay`.')
 arg_parser.add_argument('--input', help='the file containing the list of albums, playlists, and tracks to generate')
-arg_parser.add_argument('--generate-images', action='store_true', help='generate out/index.html with cards for all items listed in input file')
+arg_parser.add_argument('--generate-images', action='store_true',
+                        help='generate out/index.html with cards for all items listed in input file')
 arg_parser.add_argument('--list-library-albums', action='store_true', help='list all available library albums')
 arg_parser.add_argument('--list-library-playlists', action='store_true', help='list all available library playlists')
-arg_parser.add_argument('--list-library-tracks', const='all', action='store', nargs='?', help='list all library tracks matching given search term')
-arg_parser.add_argument('--spotify-username', default=default_spotify_user, help='the username used to set up Spotify access (only needed if you want to generate cards for Spotify tracks)')
-arg_parser.add_argument('--zones', action='store_true', help='generate out/zones.html with cards for all available Sonos zones')
-arg_parser.add_argument('--commands', action='store_true', help='generate out/commands.html with cards for all commands defined in command_cards.txt')
+arg_parser.add_argument('--list-library-tracks', const='all', action='store', nargs='?',
+                        help='list all library tracks matching given search term')
+arg_parser.add_argument('--spotify-username', default=default_spotify_user,
+                        help='the username used to set up Spotify access '
+                             '(only needed if you want to generate cards for Spotify tracks)')
+arg_parser.add_argument('--zones', action='store_true',
+                        help='generate out/zones.html with cards for all available Sonos zones')
+arg_parser.add_argument('--commands', action='store_true',
+                        help='generate out/commands.html with cards for all commands defined in command_cards.txt')
 arg_parser.add_argument('--set-defaults', action='store_true', help='set defaults to be written to my_defaults.txt')
 args = arg_parser.parse_args()
-logging.info('Arguments: %s' % (args))
+logging.info('Arguments: %s' % args)
 
 # set filenames for pickle of hashed library items
 hashed_tracks = 'hashed_tracks.dat'
@@ -59,7 +66,8 @@ hashed_albums = 'hashed_albums.dat'
 if args.spotify_username:
     # Set up Spotify access
     scope = 'user-library-read'
-    token = util.prompt_for_user_token(args.spotify_username,scope,client_id=sp_client_id,client_secret=sp_client_secret,redirect_uri=sp_redirect)
+    token = util.prompt_for_user_token(args.spotify_username, scope, client_id=sp_client_id,
+                                       client_secret=sp_client_secret, redirect_uri=sp_redirect)
     if token:
         sp = spotipy.Spotify(auth=token)
     else:
@@ -68,20 +76,22 @@ else:
     # No Spotify
     sp = None
 
+
 def set_defaults():
     # collect items to use with qrplay: spotify username, default sonos zone
     defaults = {}
-    defaults.update({'default_spotify_user' : input('Spotify username: ')})
+    defaults.update({'default_spotify_user': input('Spotify username: ')})
     sonos_zones = []
     for zone in list(soco.discover()):
         sonos_zones.append(zone)
         logging.info('Zone found: %s' % (zone.player_name))
-    defaults.update({'default_room' : input('Default Sonos zone/room: ')})
+    defaults.update({'default_room': input('Default Sonos zone/room: ')})
     current_path = os.getcwd()
     output_file_defaults = os.path.join(current_path, 'my_defaults.txt')
     file = open(output_file_defaults, 'w')
-    json.dump(defaults,file,indent=2)
+    json.dump(defaults, file, indent=2)
     file.close()
+
 
 def get_zones():
     # create a list with all available zones
@@ -104,19 +114,19 @@ def get_zones():
         '''
 
     for n in sonos_zones:
-        qrout = 'out/'+n.player_name+'_qr.png'
-        artout = 'out/'+n.player_name+'_art.png'
-        qrimg = n.player_name+'_qr.png'
-        artimg = n.player_name+'_art.png'
-        qr = pyqrcode.create('changezone:'+n.player_name)
+        qrout = 'out/' + n.player_name + '_qr.png'
+        artout = 'out/' + n.player_name + '_art.png'
+        qrimg = n.player_name + '_qr.png'
+        artimg = n.player_name + '_art.png'
+        qr = pyqrcode.create('changezone:' + n.player_name)
         qr.png(qrout, scale=6)
-        #qr.show()
+        # qr.show()
         # generate html
         html += '<div class="card">\n'
         html += '  <img src="sonos_360.png" class="art"/>\n'.format(artout)
-        html += '  <img src="'+qrimg+'" class="qrcode"/>\n'.format(qrout)
+        html += '  <img src="' + qrimg + '" class="qrcode"/>\n'.format(qrout)
         html += '  <div class="labels">\n'
-        html += '    <p class="zone">'+n.player_name+'</p>\n'
+        html += '    <p class="zone">' + n.player_name + '</p>\n'
         html += '  </div>\n'
         html += '</div>\n'
 
@@ -125,13 +135,13 @@ def get_zones():
 
     with open('out/zones.html', 'w') as f:
         f.write(html)
-    
+
 
 def list_library_playlists():
     logging.info('Getting sonos and library playlists')
     # Get sonos playlists
-    result1 = soco.music_library.MusicLibrary().get_music_library_information('sonos_playlists',complete_result=True)
-    # Get imported playlists, append to list of sonos playlists 
+    result1 = soco.music_library.MusicLibrary().get_music_library_information('sonos_playlists', complete_result=True)
+    # Get imported playlists, append to list of sonos playlists
     result2 = soco.music_library.MusicLibrary().get_playlists(complete_result=True)
     result = result1 + result2
     with open('out/all_playlists.txt', 'w') as f:
@@ -141,7 +151,7 @@ def list_library_playlists():
             xmltree = xmltree.getroot()
             xmlTitle = xmltree[0][0].text
             xmlURI = xmltree[0][1].text
-            f.write('pl:{}${}\n'.format(xmlURI, xmlTitle)) 
+            f.write('pl:{}${}\n'.format(xmlURI, xmlTitle))
     return
 
 
@@ -164,15 +174,18 @@ def list_library_albums():
             if i == 0:
                 xmlprefix = xmlURI.split('#')[0]
                 f.write('album_uuid_prefix: {}\n'.format(xmlprefix))
-            f.write('alb:{}${}${}${}\n'.format(xmlID, xmlArtist, xmlTitle,xmlArtUrl)) 
+            f.write('alb:{}${}${}${}\n'.format(xmlID, xmlArtist, xmlTitle, xmlArtUrl))
     return
+
 
 def list_library_tracks():
     if args.list_library_tracks == 'all':
         logging.info('Getting all library tracks.')
+        term = None
     else:
+        term = args.list_library_tracks
         logging.info('Getting all library trackst that match search term \'%s\'.' % (args.list_library_tracks))
-    result = soco.music_library.MusicLibrary().get_tracks(search_term=args.list_library_tracks, complete_result=True)
+    result = soco.music_library.MusicLibrary().get_tracks(search_term=term, complete_result=True)
     with open('out/all_tracks.txt', 'w') as f:
         for track in result:
             didl = soco.data_structures.to_didl_string(track)
@@ -184,6 +197,7 @@ def list_library_tracks():
             xmlAlbum = xmltree[0][4].text
             xmlArtUrl = xmltree[0][3].text
             f.write('trk:{}${}${}${}${}\n'.format(xmlURI, xmlArtist, xmlTitle, xmlAlbum, xmlArtUrl))
+
 
 # Removes extra junk from titles, e.g:
 #   (Original Motion Picture Soundtrack)
@@ -201,23 +215,23 @@ def strip_title_junk(title):
 def process_command(uri, index):
     cmdname = commands[uri]['label']
     arturl = commands[uri]['image']
-    
+
     # Determine the output image file names
     qrout = 'out/{0}qr.png'.format(index)
     artout = 'out/{0}art.jpg'.format(index)
-    
+
     # Create a QR code from the command URI
     qr1 = pyqrcode.create(uri)
     qr1.png(qrout, scale=6)
-    #qr1.show()
+    # qr1.show()
 
     if 'http' in arturl:
         logging.info(subprocess.check_output(['curl', arturl, '-o', artout]))
     else:
-        shutil.copyfile(arturl,artout)
-    return (cmdname, None, None)
-    
-    
+        shutil.copyfile(arturl, artout)
+    return cmdname, None, None
+
+
 def process_spotify_track(uri, index):
     if not sp:
         raise ValueError('Must configure Spotify API access first using `--spotify-username`')
@@ -226,26 +240,27 @@ def process_spotify_track(uri, index):
 
     logging.info(track)
     logging.info('track    : %s' % (track['name']))
-    
+
     # strip title junk
     song = strip_title_junk(track['name'])
     artist = strip_title_junk(track['artists'][0]['name'])
     album = strip_title_junk(track['album']['name'])
     arturl = track['album']['images'][0]['url']
-    
+
     # Determine the output image file names
     qrout = 'out/{0}qr.png'.format(index)
     artout = 'out/{0}art.jpg'.format(index)
-    
+
     # Create a QR code from the track URI
     qr1 = pyqrcode.create(uri)
     qr1.png(qrout, scale=6)
-    #qr1.show()
+    # qr1.show()
 
     # Fetch the artwork and save to the output directory
     logging.info(subprocess.check_output(['curl', arturl, '-o', artout]))
 
-    return (song, album, artist)
+    return song, album, artist
+
 
 def process_spotify_album(uri, index):
     if not sp:
@@ -259,21 +274,22 @@ def process_spotify_album(uri, index):
     album_name = strip_title_junk(album['name'])
     artist_name = strip_title_junk(album['artists'][0]['name'])
     arturl = album['images'][0]['url']
-    
+
     # Determine the output image file names
     qrout = 'out/{0}qr.png'.format(index)
     artout = 'out/{0}art.jpg'.format(index)
-    
+
     # Create a QR code from the album URI
     qr1 = pyqrcode.create(uri)
     qr1.png(qrout, scale=6)
-    #qr1.show()
+    # qr1.show()
 
     # Fetch the artwork and save to the output directory
     logging.info(subprocess.check_output(['curl', arturl, '-o', artout]))
 
     album_blank = ''
-    return (album_name, album_blank, artist_name)
+    return album_name, album_blank, artist_name
+
 
 def process_spotify_playlist(uri, index):
     if not sp:
@@ -288,21 +304,22 @@ def process_spotify_playlist(uri, index):
     # strip title junk
     playlist_owner = strip_title_junk(playlist['owner']['id'])
     arturl = playlist['images'][0]['url']
-    
+
     # Determine the output image file names
     qrout = 'out/{0}qr.png'.format(index)
     artout = 'out/{0}art.jpg'.format(index)
-    
+
     # Create a QR code from the playlist URI
     qr1 = pyqrcode.create(uri)
     qr1.png(qrout, scale=6)
-    #qr1.show()
+    # qr1.show()
 
     # Fetch the artwork and save to the output directory
     logging.info(subprocess.check_output(['curl', arturl, '-o', artout]))
 
     playlist_blank = ''
-    return (playlist_name, playlist_owner, playlist_blank)
+    return playlist_name, playlist_owner, playlist_blank
+
 
 def process_library_playlist(uri, index):
     # library playlist looks like:
@@ -310,25 +327,25 @@ def process_library_playlist(uri, index):
     # card needs: playlist title, uri
 
     xlist = uri.split('$')
-    xURI = xlist[0]
-    xTitle = xlist[1]
+    x_uri = xlist[0]
+    x_title = xlist[1]
     song = ''
     artist = ''
-    album = strip_title_junk(xTitle)
+    album = strip_title_junk(x_title)
 
     # Determine the output image file names
     qrout = 'out/{0}qr.png'.format(index)
     artout = 'out/{0}art.jpg'.format(index)
 
     # Create a QR code from the playlist URI
-    qr1 = pyqrcode.create(xURI)
+    qr1 = pyqrcode.create(x_uri)
     qr1.png(qrout, scale=6)
-    #qr1.show()
+    # qr1.show()
 
     # Set default playlist art
-    shutil.copyfile('ic_playlist_play_black_48dp.png',artout)        
+    shutil.copyfile('ic_playlist_play_black_48dp.png', artout)
 
-    return (song, album, artist)
+    return song, album, artist
 
 
 def process_library_album(uri, index):
@@ -339,29 +356,28 @@ def process_library_album(uri, index):
     #   alb:hsh:A:ALBUM/Wolfgang%20Amadeus%20Phoenix$Phoenix$Wolfgang Amadeus Phoenix$/getaa?u=x-file-cifs%3a%2f%2fcomputer%2fmusic%2fiTunes%2fMusic%2fPhoenix%2fWolfgang%2520Amadeus%2520Phoenix%2f01%2520Lisztomania.mp3&v=158
     # card needs: uri, album title, album artist, album art
     xlist = uri.split('$')
-    xURI = xlist[0]
-    xArtist = xlist[1]
-    xTitle = xlist[2]
-    xArtUrl = xlist[3]
-    
+    x_uri = xlist[0]
+    x_artist = xlist[1]
+    x_title = xlist[2]
+    x_art_url = xlist[3]
+
     song = ''
-    artist = strip_title_junk(xArtist)
-    album = strip_title_junk(xTitle)
+    artist = strip_title_junk(x_artist)
+    album = strip_title_junk(x_title)
     # build full album art URI by directly accessing helper method in soco core
     spkr = soco.discovery.by_name(default_room)
-    arturl = spkr._build_album_art_full_uri(xArtUrl)
-    
+    arturl = spkr.music_library.build_album_art_full_uri(x_art_url)
+
     # Fix any missing 'The' prefix
-    # Sonos strips the "The" prefix for bands that start with "The" 
-    # (it appears to do this only in listing contexts; when querying the 
-    # current/next queue track it still includes the "The").  
-    # As a dumb hack (to preserve the "The") we can look at the raw URI 
-    # for the track artwork (this assumes an iTunes-style directory structure), 
+    # Sonos strips the "The" prefix for bands that start with "The"
+    # (it appears to do this only in listing contexts; when querying the
+    # current/next queue track it still includes the "The").
+    # As a dumb hack (to preserve the "The") we can look at the raw URI
+    # for the track artwork (this assumes an iTunes-style directory structure),
     # parse out the artist directory name and see if it starts with "The".
-    from urllib.parse import unquote
-    uri_path = unquote(xArtUrl)
-    lib_part = uri_path.split('/iTunes/Music/',1)[-1]
-    artist_part = lib_part.split('/',1)[0]
+    uri_path = unquote(x_art_url)
+    lib_part = uri_path.split('/iTunes/Music/', 1)[-1]
+    artist_part = lib_part.split('/', 1)[0]
     if artist_part.startswith('The%20'):
         artist = 'The ' + artist
 
@@ -369,9 +385,9 @@ def process_library_album(uri, index):
     qrout = 'out/{0}qr.png'.format(index)
     artout = 'out/{0}art.jpg'.format(index)
 
-    if 'hsh:' in xURI:
+    if 'hsh:' in x_uri:
         # Create a hash string for simpler QR code
-        URItohash = xURI[8:]
+        URItohash = x_uri[8:]
         hash_object = hashlib.md5(URItohash.encode())
         albhash = 'alb:hsh:' + hash_object.hexdigest()
         # Write hash and track uri to pickle so qrplay can retrieve it later
@@ -387,12 +403,11 @@ def process_library_album(uri, index):
         qr1 = pyqrcode.create(albhash)
     else:
         # Create a QR code from the album URI
-        qr1 = pyqrcode.create(xURI)        
-
+        qr1 = pyqrcode.create(x_uri)
 
     # Write the QR code to disk
     qr1.png(qrout, scale=6)
-    #qr1.show()
+    # qr1.show()
 
     # Fetch the artwork and save to the output directory.
     # Some itunes artwork is too large to display in sonos, and in those cases,
@@ -402,13 +417,13 @@ def process_library_album(uri, index):
         logging.info(subprocess.check_output(['curl', arturl, '-o', artout]))
     except subprocess.CalledProcessError as e:
         logging.info('Got error from curl, setting album art to default.')
-        shutil.copyfile('ic_album_black_48dp.png',artout)
+        shutil.copyfile('ic_album_black_48dp.png', artout)
 
     # check if we have an empty artwork file. If so, set to default
     if os.path.getsize(artout) == 0:
-        shutil.copyfile('ic_album_black_48dp.png',artout)        
+        shutil.copyfile('ic_album_black_48dp.png', artout)
 
-    return (song, album, artist)
+    return song, album, artist
 
 
 def process_library_track(uri, index):
@@ -430,19 +445,18 @@ def process_library_track(uri, index):
     album = strip_title_junk(xAlbum)
     # build full album art URI by directly accessing helper method in soco core
     spkr = soco.discovery.by_name(default_room)
-    arturl = spkr._build_album_art_full_uri(xArtUrl)
+    arturl = spkr.music_library.build_album_art_full_uri(xArtUrl)
 
     # Fix any missing 'The' prefix
-    # Sonos strips the "The" prefix for bands that start with "The" 
-    # (it appears to do this only in listing contexts; when querying the 
-    # current/next queue track it still includes the "The").  
-    # As a dumb hack (to preserve the "The") we can look at the raw URI 
-    # for the track artwork (this assumes an iTunes-style directory structure), 
+    # Sonos strips the "The" prefix for bands that start with "The"
+    # (it appears to do this only in listing contexts; when querying the
+    # current/next queue track it still includes the "The").
+    # As a dumb hack (to preserve the "The") we can look at the raw URI
+    # for the track artwork (this assumes an iTunes-style directory structure),
     # parse out the artist directory name and see if it starts with "The".
-    from urllib.parse import unquote
     uri_path = unquote(xArtUrl)
-    lib_part = uri_path.split('/iTunes/Music/',1)[-1]
-    artist_part = lib_part.split('/',1)[0]
+    lib_part = uri_path.split('/iTunes/Music/', 1)[-1]
+    artist_part = lib_part.split('/', 1)[0]
     if artist_part.startswith('The%20'):
         artist = 'The ' + artist
 
@@ -466,20 +480,20 @@ def process_library_track(uri, index):
     # Create a QR code from the track URI
     qr1 = pyqrcode.create(trkhash)
     qr1.png(qrout, scale=6)
-    #qr1.show()
+    # qr1.show()
 
     # Fetch the artwork and save to the output directory
     try:
         logging.info(subprocess.check_output(['curl', arturl, '-o', artout]))
     except subprocess.CalledProcessError as e:
         logging.info('Got error from curl, setting track art to default.')
-        shutil.copyfile('ic_album_black_48dp.png',artout)
+        shutil.copyfile('ic_album_black_48dp.png', artout)
 
     # check if we have an empty artwork file. If so, set to default
     if os.path.getsize(artout) == 0:
-        shutil.copyfile('ic_album_black_48dp.png',artout)        
+        shutil.copyfile('ic_album_black_48dp.png', artout)
 
-    return (song, album, artist)
+    return song, album, artist
 
 
 # Return the HTML content for a single card.
@@ -496,9 +510,9 @@ def card_content_html(index, artist, album, song):
     else:
         html += '    <p class="song">{0}</p>\n'.format(album)
     if artist:
-        html += '    <p class="artist"><span class="small">by</span> {0}</p>\n'.format(artist)
+        html += '    <p class="artist"><span class="small">par</span> {0}</p>\n'.format(artist)
     if album and song:
-        html += '    <p class="album"><span class="small">from</span> {0}</p>\n'.format(album)
+        html += '    <p class="album"><span class="small">de</span> {0}</p>\n'.format(album)
     html += '  </div>\n'
     return html
 
@@ -528,18 +542,17 @@ def generate_individual_card_image(index, artist, album, song):
     # Then convert the HTML to a PNG image (beware the hardcoded values; these need to align
     # with the dimensions in `cards.css`)
     ## (disabled conversion of HTML to PNG)
-    #png_filename = 'out/{0}'.format(index)
-    #logging.info(subprocess.check_output(['webkit2png', html_filename, '--scale=1.0', '--clipped', '--clipwidth=720', '--clipheight=640', '-o', png_filename]))
+    # png_filename = 'out/{0}'.format(index)
+    # logging.info(subprocess.check_output(['webkit2png', html_filename, '--scale=1.0', '--clipped', '--clipwidth=720', '--clipheight=640', '-o', png_filename]))
 
     # Rename the file to remove the extra `-clipped` suffix that `webkit2png` includes by default
-    #os.rename(png_filename + '-clipped.png', png_filename + 'card.png')
+    # os.rename(png_filename + '-clipped.png', png_filename + 'card.png')
 
 
 def generate_cards():
     # Create the output directory
     dirname = os.getcwd()
     outdir = os.path.join(dirname, 'out')
-    print(outdir)
     if not os.path.exists(outdir):
         os.mkdir(outdir)
 
@@ -564,6 +577,7 @@ def generate_cards():
     html = '''
         <html>
         <head>
+        <meta charset="UTF-8">
         <link rel="stylesheet" href="cards.css">
         </head>
         <body>
@@ -574,9 +588,9 @@ def generate_cards():
         line = line.strip()
 
         # Remove any trailing comments and newline (and ignore any empty or comment-only lines)
-        #line = line.split('#')[0]
-        #line = line.strip()
-        #if not line:
+        # line = line.split('#')[0]
+        # line = line.strip()
+        # if not line:
         #    continue
 
         if line.startswith('cmd:'):
@@ -631,6 +645,7 @@ def generate_cards():
     else:
         with open('out/index.html', 'w') as f:
             f.write(html)
+
 
 if args.input:
     generate_cards()

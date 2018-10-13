@@ -1,5 +1,7 @@
 out
+.idea
 local
+.project
 .cache*
 .last-device
 .DS_Store
